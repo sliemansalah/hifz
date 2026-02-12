@@ -60,16 +60,38 @@ export default function TestPage() {
         </div>
       )}
 
+      {/* Recommended test banner */}
+      {day && !isDayTested(currentDay) && (
+        <div className="card-elevated" style={{ borderColor: 'var(--color-emerald-400)', borderWidth: '2px' }}>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">&#x2B50;</span>
+            <div className="flex-1">
+              <h3 className="font-bold text-sm">الاختبار الموصى به</h3>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                جرّب التسميع السريع — الأسرع والأكثر فعالية لتقييم حفظك
+              </p>
+            </div>
+            <Link href={`/test/tap?day=${currentDay}`} className="btn-primary text-sm shrink-0">
+              ابدأ
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Test types */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link href={`/test/tap${day ? `?day=${currentDay}` : ''}`}
-          className="card hover:shadow-lg transition-shadow text-center py-8 sm:col-span-2"
+          className="card-elevated text-center py-8 sm:col-span-2"
           style={{ borderColor: 'var(--color-emerald-400)', borderWidth: '2px' }}>
           <div className="text-4xl mb-3">&#x1F446;</div>
           <h2 className="text-xl font-bold mb-2">تسميع سريع</h2>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             كلمة بكلمة — اضغط للكشف وحدد الأخطاء بسرعة
           </p>
+          <span className="text-xs mt-2 inline-block px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+            3-5 دقائق
+          </span>
         </Link>
 
         <Link href={`/test/written${day ? `?day=${currentDay}` : ''}`}
@@ -79,6 +101,10 @@ export default function TestPage() {
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             اكتب الآيات من الذاكرة ثم قارن
           </p>
+          <span className="text-xs mt-2 inline-block px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+            10-15 دقيقة
+          </span>
         </Link>
 
         <Link href={`/test/word-hide${day ? `?day=${currentDay}` : ''}`}
@@ -88,6 +114,10 @@ export default function TestPage() {
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             أكمل الكلمات المخفية من الآيات
           </p>
+          <span className="text-xs mt-2 inline-block px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+            5-7 دقائق
+          </span>
         </Link>
 
         <Link href={`/test/oral${day ? `?day=${currentDay}` : ''}`}
@@ -97,6 +127,10 @@ export default function TestPage() {
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             سجّل صوتك ثم قارن بالنص الأصلي
           </p>
+          <span className="text-xs mt-2 inline-block px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+            5-10 دقائق
+          </span>
         </Link>
 
         <Link href="/errors/drill"
@@ -106,6 +140,10 @@ export default function TestPage() {
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             تدريب مركّز على الآيات الضعيفة
           </p>
+          <span className="text-xs mt-2 inline-block px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+            5-10 دقائق
+          </span>
         </Link>
       </div>
 

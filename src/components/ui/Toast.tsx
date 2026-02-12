@@ -27,9 +27,9 @@ const TOAST_STYLES: Record<ToastType, { bg: string; border: string; color: strin
     icon: '✓',
   },
   error: {
-    bg: '#fef2f2',
+    bg: 'var(--bg-card)',
     border: '#f87171',
-    color: '#991b1b',
+    color: '#ef4444',
     icon: '✕',
   },
   info: {
@@ -61,6 +61,8 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: number) =
 
   return (
     <div
+      role="alert"
+      aria-live="assertive"
       className={exiting ? 'animate-slide-up' : 'animate-slide-down'}
       style={{
         backgroundColor: style.bg,

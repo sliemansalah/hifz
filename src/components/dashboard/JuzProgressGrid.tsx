@@ -1,14 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { UserProgress } from '@/types/progress';
-import { TOTAL_JUZ } from '@/data/plan';
-import { calculateJuzProgress } from '@/lib/progress-calculator';
+import { TOTAL_JUZ, planDays } from '@/data/plan';
 import { getJuzDayNumbers } from '@/lib/plan-utils';
-import Link from 'next/link';
 
 interface JuzProgressGridProps {
   progress: UserProgress;
+  currentDay?: number;
 }
 
 function getJuzStatus(progress: UserProgress, dayNumbers: number[]) {
@@ -39,8 +38,12 @@ function getJuzStatus(progress: UserProgress, dayNumbers: number[]) {
   };
 }
 
-export default function JuzProgressGrid({ progress }: JuzProgressGridProps) {
+export default function JuzProgressGrid({ progress, currentDay }: JuzProgressGridProps) {
   const [selectedJuz, setSelectedJuz] = useState<number | null>(null);
+  const [compact, setCompact] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const currentJuz = currentDay ? planDays.find(d => d.dayNumber === currentDay)?.juz : undefined;
 
   const juzData = Array.from({ length: TOTAL_JUZ }, (_, i) => {
     const juz = i + 1;
@@ -51,15 +54,30 @@ export default function JuzProgressGrid({ progress }: JuzProgressGridProps) {
 
   const selected = selectedJuz !== null ? juzData.find(j => j.juz === selectedJuz) : null;
 
+  // Scroll to current juz in compact mode
+  useEffect(() => {
+    if (compact && currentJuz && scrollRef.current) {
+      const el = scrollRef.current.querySelector(`[data-juz="${currentJuz}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [compact, currentJuz]);
+
   return (
     <div className="card">
-      <h2 className="text-lg font-bold mb-4">تقدم الأجزاء</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold">تقدم الأجزاء</h2>
+        <button onClick={() => setCompact(!compact)}
+          className="text-xs px-2 py-1 rounded-lg transition-colors"
+          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+          {compact ? 'عرض مفصل' : 'عرض مضغوط'}
+        </button>
+      </div>
 
       {/* Legend */}
       <div className="flex gap-4 mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
         <span className="flex items-center gap-1">
           <span className="w-3 h-3 rounded" style={{ backgroundColor: 'var(--color-emerald-500)' }}></span>
-          مكتمل (حفظ + تسميع)
+          مكتمل
         </span>
         <span className="flex items-center gap-1">
           <span className="w-3 h-3 rounded" style={{ backgroundColor: 'var(--color-gold-400)' }}></span>
@@ -71,43 +89,75 @@ export default function JuzProgressGrid({ progress }: JuzProgressGridProps) {
         </span>
       </div>
 
-      <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2">
-        {juzData.map(({ juz, pct, memPct, avgScore }) => {
-          const isComplete = pct === 100;
-          const isMemOnly = memPct > 0 && pct < 100;
-          return (
-            <button key={juz}
-              onClick={() => setSelectedJuz(selectedJuz === juz ? null : juz)}
-              className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs transition-all cursor-pointer ${
-                selectedJuz === juz ? 'ring-2 ring-emerald-500' : ''
-              }`}
-              style={{
-                backgroundColor: isComplete
-                  ? 'var(--color-emerald-100)'
-                  : isMemOnly
-                    ? 'var(--color-gold-50)'
-                    : 'var(--bg-secondary)',
-                color: isComplete
-                  ? 'var(--color-emerald-800)'
-                  : 'var(--text-primary)',
-              }}>
-              <span className="font-bold">{juz}</span>
-              <span className="text-[10px]">{pct}%</span>
-              {avgScore > 0 && (
-                <span className="text-[9px] mt-0.5" style={{
-                  color: avgScore >= 90 ? 'var(--color-emerald-600)' : avgScore >= 80 ? 'var(--color-gold-600)' : '#ef4444'
+      {compact ? (
+        /* Compact: horizontal scrollable strip */
+        <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
+          {juzData.map(({ juz, pct, memPct }) => {
+            const isComplete = pct === 100;
+            const isMemOnly = memPct > 0 && pct < 100;
+            const isCurrent = juz === currentJuz;
+            return (
+              <button key={juz} data-juz={juz}
+                onClick={() => setSelectedJuz(selectedJuz === juz ? null : juz)}
+                className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+                  selectedJuz === juz ? 'ring-2 ring-emerald-500' : ''
+                } ${isCurrent ? 'ring-2 ring-emerald-400 animate-pulse-glow' : ''}`}
+                style={{
+                  backgroundColor: isComplete
+                    ? 'var(--color-emerald-100)'
+                    : isMemOnly
+                      ? 'var(--color-gold-50)'
+                      : 'var(--bg-secondary)',
+                  color: isComplete ? 'var(--color-emerald-800)' : 'var(--text-primary)',
+                  minWidth: '3rem',
                 }}>
-                  {avgScore}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                <span className="font-bold">{juz}</span>
+                <span className="text-[10px]">{pct}%</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        /* Detailed: full grid */
+        <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2">
+          {juzData.map(({ juz, pct, memPct, avgScore }) => {
+            const isComplete = pct === 100;
+            const isMemOnly = memPct > 0 && pct < 100;
+            const isCurrent = juz === currentJuz;
+            return (
+              <button key={juz}
+                onClick={() => setSelectedJuz(selectedJuz === juz ? null : juz)}
+                className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs transition-all cursor-pointer ${
+                  selectedJuz === juz ? 'ring-2 ring-emerald-500' : ''
+                } ${isCurrent ? 'ring-2 ring-emerald-400 animate-pulse-glow' : ''}`}
+                style={{
+                  backgroundColor: isComplete
+                    ? 'var(--color-emerald-100)'
+                    : isMemOnly
+                      ? 'var(--color-gold-50)'
+                      : 'var(--bg-secondary)',
+                  color: isComplete
+                    ? 'var(--color-emerald-800)'
+                    : 'var(--text-primary)',
+                }}>
+                <span className="font-bold">{juz}</span>
+                <span className="text-[10px]">{pct}%</span>
+                {avgScore > 0 && (
+                  <span className="text-[9px] mt-0.5" style={{
+                    color: avgScore >= 90 ? 'var(--color-emerald-600)' : avgScore >= 80 ? 'var(--color-gold-600)' : '#ef4444'
+                  }}>
+                    {avgScore}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Detail panel */}
       {selected && (
-        <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        <div className="mt-4 p-4 rounded-lg animate-fade-in" style={{ backgroundColor: 'var(--bg-secondary)' }}>
           <h3 className="font-bold mb-3">الجزء {selected.juz}</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-sm">
             <div>

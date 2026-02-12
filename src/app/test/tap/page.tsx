@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
+import { Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useProgress } from '@/hooks/useProgress';
@@ -43,6 +43,8 @@ function TapTestContent() {
   const [showResult, setShowResult] = useState(false);
   const [editingWordIndex, setEditingWordIndex] = useState<number | null>(null);
   const [editInput, setEditInput] = useState('');
+  const [flashColor, setFlashColor] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const startTimeRef = useRef<number>(Date.now());
   const containerRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -82,6 +84,10 @@ function TapTestContent() {
 
   const revealWord = useCallback((markAsError: boolean) => {
     if (currentWordIndex >= words.length || finished || editingWordIndex !== null) return;
+
+    // Visual flash
+    setFlashColor(markAsError ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)');
+    setTimeout(() => setFlashColor(null), 200);
 
     setWords(prev => {
       const updated = [...prev];
@@ -175,6 +181,21 @@ function TapTestContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [revealWord, showResult, words.length, editingWordIndex, goBack, finished, currentWordIndex]);
 
+  // Timer
+  useEffect(() => {
+    if (showResult || !words.length) return;
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showResult, words.length]);
+
+  const timerStr = useMemo(() => {
+    const m = Math.floor(elapsedSeconds / 60);
+    const s = elapsedSeconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }, [elapsedSeconds]);
+
   const handleFinish = () => {
     if (!day || !fullText) return;
 
@@ -265,8 +286,19 @@ function TapTestContent() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-6 max-w-3xl mx-auto text-center py-20">
-        <p style={{ color: 'var(--text-secondary)' }}>جارٍ التحميل...</p>
+      <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <div><div className="skeleton h-7 w-36 mb-2" /><div className="skeleton h-4 w-48" /></div>
+          <div className="skeleton h-8 w-20" />
+        </div>
+        <div className="skeleton h-2 w-full rounded-full" />
+        <div className="card min-h-[200px] flex items-center justify-center">
+          <div className="spinner" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="skeleton h-14 rounded-xl" />
+          <div className="skeleton h-14 rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -319,6 +351,7 @@ function TapTestContent() {
           </p>
         </div>
         <div className="text-left text-xs" style={{ color: 'var(--text-secondary)' }}>
+          <div className="font-mono" dir="ltr">{timerStr}</div>
           <div>{revealedCount}/{words.length} كلمات</div>
           {errorCount > 0 && <div className="text-red-500">{errorCount} أخطاء</div>}
         </div>
@@ -330,18 +363,21 @@ function TapTestContent() {
       </div>
 
       {/* Instructions */}
-      <div className="flex gap-1.5 text-[10px] justify-center flex-wrap" style={{ color: 'var(--text-secondary)' }}>
-        <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+      <div className="flex gap-2 text-xs justify-center flex-wrap p-2 rounded-lg"
+        style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        <span className="px-2 py-1 rounded font-medium"
+          style={{ backgroundColor: 'var(--color-emerald-100)', color: 'var(--color-emerald-700)' }}>
           مسافة = صحيح
         </span>
-        <span className="px-2 py-1 rounded" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+        <span className="px-2 py-1 rounded font-medium"
+          style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
           X = خطأ
         </span>
-        <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        <span className="px-2 py-1 rounded font-medium" style={{ backgroundColor: 'var(--bg-card)' }}>
           Ctrl+Z = رجوع
         </span>
-        <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-          اضغط كلمة = تبديل صح/خطأ
+        <span className="px-2 py-1 rounded font-medium" style={{ backgroundColor: 'var(--bg-card)' }}>
+          اضغط كلمة = تبديل
         </span>
       </div>
 
@@ -372,7 +408,8 @@ function TapTestContent() {
       )}
 
       {/* Words display */}
-      <div ref={containerRef} className="card min-h-[200px] quran-text text-xl leading-[2.5] text-center">
+      <div ref={containerRef} className="card min-h-[200px] quran-text text-xl leading-[2.5] text-center transition-colors"
+        style={flashColor ? { backgroundColor: flashColor } : undefined}>
         {words.map((word, i) => {
           const isCurrentWord = i === currentWordIndex && !finished;
 

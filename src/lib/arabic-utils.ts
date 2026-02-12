@@ -80,25 +80,61 @@ export function compareTexts(original: string, input: string): {
     }
   }
 
-  // Collect unmatched original words as errors
+  // Collect unmatched words and pair nearby deletion+addition as substitution
+  const deletions: { wordIndex: number; expected: string }[] = [];
+  const additions: { wordIndex: number; actual: string }[] = [];
+
   for (let i = 0; i < origWords.length; i++) {
     if (!origMatched[i]) {
+      deletions.push({ wordIndex: i, expected: origWordsRaw[i] || '' });
+    }
+  }
+
+  for (let i = 0; i < inputWords.length; i++) {
+    if (!inputMatched[i]) {
+      additions.push({ wordIndex: i, actual: inputWordsRaw[i] || '' });
+    }
+  }
+
+  // Pair deletions and additions that are positionally close as substitutions
+  const usedAdditions = new Set<number>();
+  for (const del of deletions) {
+    // Find the closest unpaired addition near this deletion position
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (let a = 0; a < additions.length; a++) {
+      if (usedAdditions.has(a)) continue;
+      const dist = Math.abs(del.wordIndex - additions[a].wordIndex);
+      if (dist < bestDist && dist <= 2) {
+        bestDist = dist;
+        bestIdx = a;
+      }
+    }
+    if (bestIdx >= 0) {
+      usedAdditions.add(bestIdx);
       errors.push({
-        wordIndex: i,
-        expected: origWordsRaw[i] || '',
+        wordIndex: del.wordIndex,
+        expected: del.expected,
+        actual: additions[bestIdx].actual,
+        type: 'substitution',
+      });
+    } else {
+      errors.push({
+        wordIndex: del.wordIndex,
+        expected: del.expected,
         actual: '',
         type: 'deletion',
       });
     }
   }
 
-  // Collect unmatched input words as errors
-  for (let i = 0; i < inputWords.length; i++) {
-    if (!inputMatched[i]) {
+  // Remaining unpaired additions
+  for (let a = 0; a < additions.length; a++) {
+    if (!usedAdditions.has(a)) {
       errors.push({
-        wordIndex: i,
+        wordIndex: additions[a].wordIndex,
         expected: '',
-        actual: inputWordsRaw[i] || '',
+        actual: additions[a].actual,
         type: 'addition',
       });
     }

@@ -109,6 +109,58 @@ export function getAyahErrorStatus(surahNumber: number, ayahNumber: number): Wor
   return 'orange';
 }
 
+// Batch: compute ayah-level error status for ALL ayahs in one localStorage read
+// Returns Map keyed by "surahNumber:ayahNumber" → WordErrorStatus
+export function getAllAyahErrorStatuses(): Map<string, WordErrorStatus> {
+  const errors = getErrors();
+  if (errors.length === 0) return new Map();
+
+  // Group errors by ayah
+  const ayahMap = new Map<string, { wordErrors: Map<number, { count: number; timestamps: string[] }>; allTimestamps: string[] }>();
+  for (const err of errors) {
+    const key = `${err.surahNumber}:${err.ayahNumber}`;
+    let entry = ayahMap.get(key);
+    if (!entry) {
+      entry = { wordErrors: new Map(), allTimestamps: [] };
+      ayahMap.set(key, entry);
+    }
+    entry.allTimestamps.push(err.timestamp);
+    const existing = entry.wordErrors.get(err.wordIndex);
+    if (existing) {
+      existing.count++;
+      existing.timestamps.push(err.timestamp);
+    } else {
+      entry.wordErrors.set(err.wordIndex, { count: 1, timestamps: [err.timestamp] });
+    }
+  }
+
+  // Compute status per ayah
+  const result = new Map<string, WordErrorStatus>();
+  for (const [key, entry] of ayahMap) {
+    const latestError = entry.allTimestamps.sort()[entry.allTimestamps.length - 1];
+    let hasRed = false, hasYellow = false, allOrange = true;
+    for (const [, data] of entry.wordErrors) {
+      if (data.count > 1) {
+        const latestForWord = data.timestamps.sort()[data.timestamps.length - 1];
+        if (latestForWord < latestError) {
+          // orange (corrected)
+        } else {
+          hasRed = true;
+          allOrange = false;
+        }
+      } else {
+        hasYellow = true;
+        allOrange = false;
+      }
+    }
+    if (hasRed) result.set(key, 'red');
+    else if (hasYellow) result.set(key, 'yellow');
+    else if (allOrange) result.set(key, 'orange');
+  }
+
+  return result;
+}
+
 export function clearErrors(): void {
   setItem(ERRORS_KEY, []);
 }

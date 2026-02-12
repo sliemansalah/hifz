@@ -37,23 +37,24 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4 animate-fade-in">
-      <header className="text-center mb-6">
+      {/* Motivational message */}
+      <header className="card-glass islamic-border text-center py-5 px-4">
         <h1 className="text-2xl font-bold" style={{ color: 'var(--color-emerald-600)' }}>
           بسم الله الرحمن الرحيم
         </h1>
-        <p className="text-sm mt-1 quran-text" style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-sm mt-2 quran-text" style={{ color: 'var(--text-secondary)' }}>
           {message}
         </p>
       </header>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-4 gap-2 stagger-children">
         {quickActions.map(action => (
           <Link
             key={action.href}
             href={action.href}
-            className="card-interactive flex flex-col items-center gap-1.5 py-3 rounded-xl text-center"
-            style={{ backgroundColor: action.bg, color: action.color }}
+            className="card-elevated flex flex-col items-center gap-1.5 py-3 rounded-xl text-center animate-fade-in"
+            style={{ backgroundColor: action.bg, color: action.color, padding: '0.75rem 0.5rem' }}
           >
             <span className="text-2xl">{action.icon}</span>
             <span className="text-xs font-bold">{action.label}</span>
@@ -78,7 +79,7 @@ export default function DashboardPage() {
         isCompleted={todayDay ? isDayCompleted(todayDay.dayNumber) : false}
       />
 
-      <JuzProgressGrid progress={progress} />
+      <JuzProgressGrid progress={progress} currentDay={currentDay} />
     </div>
   );
 }

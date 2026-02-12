@@ -7,7 +7,7 @@ import { useQuranText } from '@/hooks/useQuranText';
 import { useErrorLog } from '@/hooks/useErrorLog';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { getDay } from '@/data/plan';
-import { compareTexts } from '@/lib/arabic-utils';
+import { compareTexts, splitWords } from '@/lib/arabic-utils';
 import { todayISO } from '@/lib/date-utils';
 import { addCertificate } from '@/lib/certificates';
 import TestResult from '@/components/testing/TestResult';
@@ -107,8 +107,14 @@ function WrittenTestContent() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-6 max-w-3xl mx-auto text-center py-20">
-        <p style={{ color: 'var(--text-secondary)' }}>جارٍ التحميل...</p>
+      <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4">
+        <div><div className="skeleton h-8 w-40 mb-2" /><div className="skeleton h-4 w-56" /></div>
+        <div className="card space-y-3">
+          <div className="skeleton h-6 w-48" />
+          <div className="skeleton h-4 w-64" />
+          <div className="skeleton h-48 w-full" />
+        </div>
+        <div className="skeleton h-12 w-full rounded-lg" />
       </div>
     );
   }
@@ -142,14 +148,28 @@ function WrittenTestContent() {
             <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
               اكتب {day.surahName} من الآية {day.startAyah} إلى {day.endAyah}
             </p>
+            {/* First word hint */}
+            {fullText && !input.trim() && (
+              <div className="mb-2 text-sm px-3 py-1.5 rounded-lg inline-block"
+                style={{ backgroundColor: 'var(--color-emerald-50)', color: 'var(--color-emerald-700)' }}>
+                ابدأ بـ: <span className="quran-text font-bold">{splitWords(fullText)[0]}</span>
+              </div>
+            )}
             <textarea
               value={input}
               onChange={e => setInput(e.target.value)}
-              className="w-full h-48 p-4 rounded-lg border quran-text text-lg resize-none"
-              style={{ backgroundColor: 'var(--bg-secondary)', direction: 'rtl' }}
+              className="w-full p-4 rounded-lg border quran-text text-lg"
+              style={{ backgroundColor: 'var(--bg-secondary)', direction: 'rtl', minHeight: '12rem', fieldSizing: 'content' } as React.CSSProperties}
               placeholder="ابدأ الكتابة هنا..."
               dir="rtl"
             />
+            {/* Word counter */}
+            <div className="flex justify-between mt-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <span>
+                {splitWords(input).length} كلمة مكتوبة
+                {fullText && ` / ${splitWords(fullText).length} متوقعة`}
+              </span>
+            </div>
           </div>
           <button onClick={handleSubmit}
             disabled={!input.trim()}

@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { surahMeta } from '@/data/surah-meta';
 import { useQuranText } from '@/hooks/useQuranText';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
-import { getWordErrorStatuses, getAyahErrorStatus, type WordErrorStatus } from '@/lib/error-tracker';
+import { getWordErrorStatuses, getAllAyahErrorStatuses, type WordErrorStatus } from '@/lib/error-tracker';
 import { RepeatMode, RepeatCount } from '@/hooks/useAudioPlayer';
 
 const ERROR_COLORS: Record<WordErrorStatus, string> = {
@@ -114,8 +114,20 @@ function SurahView({ surahNumber }: { surahNumber: number }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-pulse" style={{ color: 'var(--text-secondary)' }}>جارٍ تحميل السورة...</div>
+      <div className="space-y-4">
+        <div className="text-center py-4 islamic-border">
+          <div className="skeleton h-8 w-40 mx-auto mb-2" />
+          <div className="skeleton h-4 w-32 mx-auto" />
+        </div>
+        <div className="card space-y-2">
+          <div className="skeleton h-4 w-40 mb-3" />
+          <div className="skeleton h-10 w-full" />
+        </div>
+        <div className="islamic-border p-4 space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton h-6 w-full" style={{ opacity: 1 - i * 0.12 }} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -318,20 +330,15 @@ export default function MushafPage() {
   const [selectedSurah, setSelectedSurah] = useState(1);
   const [showSurahList, setShowSurahList] = useState(true);
 
-  // Calculate error status per surah (overview)
+  // Calculate error status per surah (overview) — single localStorage read
   const surahErrors = useMemo(() => {
+    const allStatuses = getAllAyahErrorStatuses();
     const result: Record<number, { red: number; yellow: number; orange: number }> = {};
-    for (const surah of surahMeta) {
-      let red = 0, yellow = 0, orange = 0;
-      for (let ayah = 1; ayah <= surah.ayahCount; ayah++) {
-        const status = getAyahErrorStatus(surah.number, ayah);
-        if (status === 'red') red++;
-        else if (status === 'yellow') yellow++;
-        else if (status === 'orange') orange++;
-      }
-      if (red + yellow + orange > 0) {
-        result[surah.number] = { red, yellow, orange };
-      }
+    for (const [key, status] of allStatuses) {
+      if (status === 'none') continue;
+      const surahNum = Number(key.split(':')[0]);
+      if (!result[surahNum]) result[surahNum] = { red: 0, yellow: 0, orange: 0 };
+      result[surahNum][status]++;
     }
     return result;
   }, []);

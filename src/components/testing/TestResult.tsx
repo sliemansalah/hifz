@@ -85,10 +85,19 @@ export default function TestResult({
         />
       )}
 
-      {/* Score display */}
+      {/* Score display with circular ring */}
       <div className="text-center py-6">
-        <div className="text-5xl font-bold mb-2" style={{ color: getScoreColor() }}>
-          {score}%
+        <div className="relative inline-block mb-3">
+          <svg width="120" height="120" viewBox="0 0 120 120" className="transform -rotate-90">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-secondary)" strokeWidth="8" />
+            <circle cx="60" cy="60" r="52" fill="none" stroke={getScoreColor()} strokeWidth="8"
+              strokeLinecap="round"
+              strokeDasharray={`${(score / 100) * 2 * Math.PI * 52} ${2 * Math.PI * 52}`}
+              style={{ transition: 'stroke-dasharray 1s ease-out' }} />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-3xl font-bold" style={{ color: getScoreColor() }}>{score}%</span>
+          </div>
         </div>
         <p className="text-lg font-medium">{getScoreMessage()}</p>
         <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -159,8 +168,15 @@ export default function TestResult({
                           {info.label}
                         </span>
                         {err.type === 'deletion' && (
-                          <span className="quran-text font-bold" style={{ color: info.color }}>
-                            {err.expected}
+                          <span className="quran-text">
+                            {/* Show surrounding context for deletion */}
+                            {originalWords && err.wordIndex > 0 && (
+                              <span style={{ color: 'var(--text-secondary)' }}>{originalWords[err.wordIndex - 1]} </span>
+                            )}
+                            <span className="font-bold" style={{ color: info.color }}>[{err.expected}]</span>
+                            {originalWords && err.wordIndex < originalWords.length - 1 && (
+                              <span style={{ color: 'var(--text-secondary)' }}> {originalWords[err.wordIndex + 1]}</span>
+                            )}
                           </span>
                         )}
                         {err.type === 'addition' && (

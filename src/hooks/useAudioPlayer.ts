@@ -25,6 +25,7 @@ export interface AudioPlayerState {
   currentTime: number;
   config: AudioConfig;
   currentRepeat: number; // current repeat iteration (1-based)
+  error: string | null;
 }
 
 const DEFAULT_CONFIG: AudioConfig = {
@@ -45,6 +46,7 @@ export function useAudioPlayer() {
     currentTime: 0,
     config: DEFAULT_CONFIG,
     currentRepeat: 1,
+    error: null,
   });
   const playlistRef = useRef<number[]>([]);
   const playlistIndexRef = useRef(0);
@@ -57,14 +59,18 @@ export function useAudioPlayer() {
     configRef.current = state.config;
   }, [state.config]);
 
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 2;
+
   const playAyah = useCallback((absoluteAyahNumber: number) => {
     const audio = audioRef.current;
     if (!audio) return;
 
+    retryCountRef.current = 0;
     audio.src = `${AUDIO_BASE}/${absoluteAyahNumber}.mp3`;
     audio.playbackRate = configRef.current.playbackSpeed;
     audio.play().catch(() => {});
-    setState(s => ({ ...s, playing: true, currentAyah: absoluteAyahNumber, progress: 0 }));
+    setState(s => ({ ...s, playing: true, currentAyah: absoluteAyahNumber, progress: 0, error: null }));
   }, []);
 
   // Initialize audio element
@@ -148,7 +154,17 @@ export function useAudioPlayer() {
     });
 
     audio.addEventListener('error', () => {
-      setState(s => ({ ...s, loading: false, playing: false }));
+      const currentAyahNum = playlistRef.current[playlistIndexRef.current];
+      if (retryCountRef.current < MAX_RETRIES && currentAyahNum) {
+        retryCountRef.current++;
+        // Retry after a short delay
+        setTimeout(() => {
+          audio.src = `${AUDIO_BASE}/${currentAyahNum}.mp3`;
+          audio.play().catch(() => {});
+        }, 1000);
+      } else {
+        setState(s => ({ ...s, loading: false, playing: false, error: 'فشل تحميل الصوت' }));
+      }
     });
 
     return () => {

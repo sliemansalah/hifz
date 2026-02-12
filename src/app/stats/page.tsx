@@ -15,9 +15,13 @@ export default function StatsPage() {
   const { errors } = useErrorLog();
 
   const totalMinutes = Math.round(getTotalTime() / 60);
-  const avgScore = sessions.filter(s => s.score !== undefined).length > 0
-    ? Math.round(sessions.filter(s => s.score !== undefined).reduce((a, s) => a + (s.score || 0), 0) / sessions.filter(s => s.score !== undefined).length)
-    : 0;
+  const avgScore = (() => {
+    let sum = 0, count = 0;
+    for (const s of sessions) {
+      if (s.score !== undefined) { sum += s.score; count++; }
+    }
+    return count > 0 ? Math.round(sum / count) : 0;
+  })();
 
   const juzProgressData = Array.from({ length: TOTAL_JUZ }, (_, i) => {
     const juz = i + 1;

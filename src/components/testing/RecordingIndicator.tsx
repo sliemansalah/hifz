@@ -10,13 +10,23 @@ export default function RecordingIndicator({ duration, interimText }: RecordingI
 
   return (
     <div className="text-center space-y-4">
-      {/* Pulsing recording indicator */}
+      {/* Waveform recording indicator */}
       <div className="flex items-center justify-center gap-3">
-        <div className="relative">
-          <div className="w-4 h-4 rounded-full bg-red-500 animate-pulse" />
-          <div className="absolute inset-0 w-4 h-4 rounded-full bg-red-500 animate-ping opacity-30" />
+        <div className="flex items-end gap-1 h-6">
+          <div className="waveform-bar" />
+          <div className="waveform-bar" />
+          <div className="waveform-bar" />
+          <div className="waveform-bar" />
+          <div className="waveform-bar" />
         </div>
         <span className="text-red-500 font-bold text-sm">جارٍ التسجيل</span>
+        <div className="flex items-end gap-1 h-6">
+          <div className="waveform-bar" style={{ animationDelay: '0.5s' }} />
+          <div className="waveform-bar" style={{ animationDelay: '0.35s' }} />
+          <div className="waveform-bar" style={{ animationDelay: '0.2s' }} />
+          <div className="waveform-bar" style={{ animationDelay: '0.65s' }} />
+          <div className="waveform-bar" style={{ animationDelay: '0.8s' }} />
+        </div>
       </div>
 
       {/* Timer */}
