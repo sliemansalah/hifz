@@ -1,10 +1,32 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { surahMeta } from '@/data/surah-meta';
 
-// Yasser Al-Dosari audio from islamic.network CDN
-// Ayah numbers are absolute (1-6236)
-const AUDIO_BASE = 'https://cdn.islamic.network/quran/audio/128/ar.yasserdossari';
+// EveryAyah.com CDN — per-ayah audio, format: {folder}/{SSSAAA}.mp3
+const AUDIO_BASE = 'https://everyayah.com/data/Yasser_Ad-Dussary_128kbps';
+
+// Build cumulative ayah count for absolute→surah:ayah conversion
+const surahStartAbsolute: number[] = [];
+{
+  let cumulative = 0;
+  for (const s of surahMeta) {
+    surahStartAbsolute.push(cumulative);
+    cumulative += s.ayahCount;
+  }
+}
+
+// Convert absolute ayah number (1-6236) to "SSSAAA" format
+function absoluteToSSSAAA(absolute: number): string {
+  for (let i = surahMeta.length - 1; i >= 0; i--) {
+    if (absolute > surahStartAbsolute[i]) {
+      const surah = i + 1;
+      const ayah = absolute - surahStartAbsolute[i];
+      return String(surah).padStart(3, '0') + String(ayah).padStart(3, '0');
+      }
+  }
+  return '001001';
+}
 
 export type RepeatMode = 'off' | 'ayah' | 'range';
 export type RepeatCount = 1 | 3 | 5 | 10 | 0; // 0 = infinite
@@ -67,7 +89,7 @@ export function useAudioPlayer() {
     if (!audio) return;
 
     retryCountRef.current = 0;
-    audio.src = `${AUDIO_BASE}/${absoluteAyahNumber}.mp3`;
+    audio.src = `${AUDIO_BASE}/${absoluteToSSSAAA(absoluteAyahNumber)}.mp3`;
     audio.playbackRate = configRef.current.playbackSpeed;
     audio.play().catch(() => {});
     setState(s => ({ ...s, playing: true, currentAyah: absoluteAyahNumber, progress: 0, error: null }));
@@ -159,7 +181,7 @@ export function useAudioPlayer() {
         retryCountRef.current++;
         // Retry after a short delay
         setTimeout(() => {
-          audio.src = `${AUDIO_BASE}/${currentAyahNum}.mp3`;
+          audio.src = `${AUDIO_BASE}/${absoluteToSSSAAA(currentAyahNum)}.mp3`;
           audio.play().catch(() => {});
         }, 1000);
       } else {
