@@ -1,0 +1,162 @@
+@import "tailwindcss";
+
+@theme {
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-200: #a7f3d0;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-emerald-700: #047857;
+  --color-emerald-800: #065f46;
+  --color-emerald-900: #064e3b;
+
+  --color-gold-50: #fefce8;
+  --color-gold-100: #fef9c3;
+  --color-gold-200: #fef08a;
+  --color-gold-300: #fde047;
+  --color-gold-400: #facc15;
+  --color-gold-500: #eab308;
+  --color-gold-600: #ca8a04;
+  --color-gold-700: #a16207;
+  --color-gold-800: #854d0e;
+  --color-gold-900: #713f12;
+
+  --color-primary: var(--color-emerald-600);
+  --color-primary-light: var(--color-emerald-400);
+  --color-primary-dark: var(--color-emerald-800);
+  --color-accent: var(--color-gold-500);
+  --color-accent-light: var(--color-gold-300);
+  --color-accent-dark: var(--color-gold-700);
+}
+
+@layer base {
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f9fafb;
+    --bg-card: #ffffff;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --border-color: #e5e7eb;
+  }
+
+  .dark {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-card: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border-color: #334155;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Noto Naskh Arabic', 'Amiri', serif;
+  }
+
+  * {
+    border-color: var(--border-color);
+  }
+}
+
+@layer components {
+  .quran-text {
+    font-family: 'Amiri', 'Noto Naskh Arabic', serif;
+    line-height: 2.2;
+    letter-spacing: 0.01em;
+  }
+
+  .ayah-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+    border-radius: 50%;
+    background: var(--color-emerald-100);
+    color: var(--color-emerald-800);
+    margin: 0 0.25rem;
+    font-family: sans-serif;
+  }
+
+  .dark .ayah-number {
+    background: var(--color-emerald-900);
+    color: var(--color-emerald-200);
+  }
+
+  .card {
+    background-color: var(--bg-card);
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+  }
+
+  .btn-primary {
+    background-color: var(--color-emerald-600);
+    color: white;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn-primary:hover {
+    background-color: var(--color-emerald-700);
+  }
+
+  .btn-secondary {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    border: 1px solid var(--border-color);
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover {
+    background-color: var(--border-color);
+  }
+
+  .btn-accent {
+    background-color: var(--color-gold-500);
+    color: var(--color-gold-900);
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn-accent:hover {
+    background-color: var(--color-gold-600);
+  }
+
+  .progress-bar {
+    height: 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--bg-secondary);
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, var(--color-emerald-400), var(--color-emerald-600));
+    transition: width 0.5s ease;
+  }
+
+  .islamic-border {
+    border: 2px solid var(--color-gold-300);
+    border-radius: 1rem;
+    position: relative;
+  }
+
+  .dark .islamic-border {
+    border-color: var(--color-gold-700);
+  }
+
+  .font-size-small .quran-text { font-size: 1.125rem; }
+  .font-size-medium .quran-text { font-size: 1.5rem; }
+  .font-size-large .quran-text { font-size: 1.875rem; }
+  .font-size-xlarge .quran-text { font-size: 2.25rem; }
+}

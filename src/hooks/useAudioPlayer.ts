@@ -1,0 +1,253 @@
+'use client';
+
+import { useState, useRef, useCallback, useEffect } from 'react';
+
+// Yasser Al-Dosari audio from islamic.network CDN
+// Ayah numbers are absolute (1-6236)
+const AUDIO_BASE = 'https://cdn.islamic.network/quran/audio/128/ar.yasserdossari';
+
+export type RepeatMode = 'off' | 'ayah' | 'range';
+export type RepeatCount = 1 | 3 | 5 | 10 | 0; // 0 = infinite
+
+export interface AudioConfig {
+  repeatMode: RepeatMode;
+  repeatCount: RepeatCount;
+  playbackSpeed: number;
+  autoPauseSeconds: number;
+}
+
+export interface AudioPlayerState {
+  playing: boolean;
+  currentAyah: number | null; // absolute ayah number
+  loading: boolean;
+  progress: number; // 0-100
+  duration: number;
+  currentTime: number;
+  config: AudioConfig;
+  currentRepeat: number; // current repeat iteration (1-based)
+}
+
+const DEFAULT_CONFIG: AudioConfig = {
+  repeatMode: 'off',
+  repeatCount: 1,
+  playbackSpeed: 1,
+  autoPauseSeconds: 0,
+};
+
+export function useAudioPlayer() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [state, setState] = useState<AudioPlayerState>({
+    playing: false,
+    currentAyah: null,
+    loading: false,
+    progress: 0,
+    duration: 0,
+    currentTime: 0,
+    config: DEFAULT_CONFIG,
+    currentRepeat: 1,
+  });
+  const playlistRef = useRef<number[]>([]);
+  const playlistIndexRef = useRef(0);
+  const repeatCounterRef = useRef(1);
+  const configRef = useRef<AudioConfig>(DEFAULT_CONFIG);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep configRef in sync
+  useEffect(() => {
+    configRef.current = state.config;
+  }, [state.config]);
+
+  const playAyah = useCallback((absoluteAyahNumber: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.src = `${AUDIO_BASE}/${absoluteAyahNumber}.mp3`;
+    audio.playbackRate = configRef.current.playbackSpeed;
+    audio.play().catch(() => {});
+    setState(s => ({ ...s, playing: true, currentAyah: absoluteAyahNumber, progress: 0 }));
+  }, []);
+
+  // Initialize audio element
+  useEffect(() => {
+    const audio = new Audio();
+    audioRef.current = audio;
+
+    audio.addEventListener('timeupdate', () => {
+      const progress = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+      setState(s => ({ ...s, progress, currentTime: audio.currentTime, duration: audio.duration || 0 }));
+    });
+
+    audio.addEventListener('ended', () => {
+      const config = configRef.current;
+      const playlist = playlistRef.current;
+      const currentIndex = playlistIndexRef.current;
+      const currentRepeat = repeatCounterRef.current;
+
+      // Determine target repeat count
+      const maxRepeats = config.repeatCount === 0 ? Infinity : config.repeatCount;
+
+      if (config.repeatMode === 'ayah' && currentRepeat < maxRepeats) {
+        // Repeat same ayah
+        repeatCounterRef.current++;
+        setState(s => ({ ...s, currentRepeat: repeatCounterRef.current }));
+        const delay = config.autoPauseSeconds * 1000;
+        if (delay > 0) {
+          setState(s => ({ ...s, playing: false }));
+          pauseTimerRef.current = setTimeout(() => {
+            playAyah(playlist[currentIndex]);
+          }, delay);
+        } else {
+          playAyah(playlist[currentIndex]);
+        }
+        return;
+      }
+
+      // Move to next ayah
+      const nextIndex = currentIndex + 1;
+      if (nextIndex < playlist.length) {
+        playlistIndexRef.current = nextIndex;
+        repeatCounterRef.current = 1;
+        setState(s => ({ ...s, currentRepeat: 1 }));
+        const delay = config.autoPauseSeconds * 1000;
+        if (delay > 0) {
+          setState(s => ({ ...s, playing: false }));
+          pauseTimerRef.current = setTimeout(() => {
+            playAyah(playlist[nextIndex]);
+          }, delay);
+        } else {
+          playAyah(playlist[nextIndex]);
+        }
+      } else if (config.repeatMode === 'range' && currentRepeat < maxRepeats) {
+        // Repeat entire range
+        repeatCounterRef.current++;
+        setState(s => ({ ...s, currentRepeat: repeatCounterRef.current }));
+        playlistIndexRef.current = 0;
+        const delay = config.autoPauseSeconds * 1000;
+        if (delay > 0) {
+          setState(s => ({ ...s, playing: false }));
+          pauseTimerRef.current = setTimeout(() => {
+            playAyah(playlist[0]);
+          }, delay);
+        } else {
+          playAyah(playlist[0]);
+        }
+      } else {
+        // Done
+        setState(s => ({ ...s, playing: false, currentAyah: null, progress: 0 }));
+        repeatCounterRef.current = 1;
+        setState(s => ({ ...s, currentRepeat: 1 }));
+      }
+    });
+
+    audio.addEventListener('loadstart', () => {
+      setState(s => ({ ...s, loading: true }));
+    });
+
+    audio.addEventListener('canplay', () => {
+      setState(s => ({ ...s, loading: false }));
+    });
+
+    audio.addEventListener('error', () => {
+      setState(s => ({ ...s, loading: false, playing: false }));
+    });
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+      if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+    };
+  }, [playAyah]);
+
+  const playRange = useCallback((absoluteAyahNumbers: number[]) => {
+    if (absoluteAyahNumbers.length === 0) return;
+    playlistRef.current = absoluteAyahNumbers;
+    playlistIndexRef.current = 0;
+    repeatCounterRef.current = 1;
+    setState(s => ({ ...s, currentRepeat: 1 }));
+    playAyah(absoluteAyahNumbers[0]);
+  }, [playAyah]);
+
+  const pause = useCallback(() => {
+    audioRef.current?.pause();
+    if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+    setState(s => ({ ...s, playing: false }));
+  }, []);
+
+  const resume = useCallback(() => {
+    audioRef.current?.play().catch(() => {});
+    setState(s => ({ ...s, playing: true }));
+  }, []);
+
+  const stop = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.src = '';
+    }
+    if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+    playlistRef.current = [];
+    playlistIndexRef.current = 0;
+    repeatCounterRef.current = 1;
+    setState(s => ({
+      ...s,
+      playing: false, currentAyah: null, loading: false, progress: 0,
+      duration: 0, currentTime: 0, currentRepeat: 1,
+    }));
+  }, []);
+
+  const togglePlayPause = useCallback(() => {
+    if (state.playing) {
+      pause();
+    } else if (state.currentAyah) {
+      resume();
+    }
+  }, [state.playing, state.currentAyah, pause, resume]);
+
+  const skipNext = useCallback(() => {
+    if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+    repeatCounterRef.current = 1;
+    setState(s => ({ ...s, currentRepeat: 1 }));
+    playlistIndexRef.current++;
+    if (playlistIndexRef.current < playlistRef.current.length) {
+      playAyah(playlistRef.current[playlistIndexRef.current]);
+    } else {
+      stop();
+    }
+  }, [playAyah, stop]);
+
+  const skipPrev = useCallback(() => {
+    if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+    repeatCounterRef.current = 1;
+    setState(s => ({ ...s, currentRepeat: 1 }));
+    if (playlistIndexRef.current > 0) {
+      playlistIndexRef.current--;
+      playAyah(playlistRef.current[playlistIndexRef.current]);
+    }
+  }, [playAyah]);
+
+  const updateConfig = useCallback((updates: Partial<AudioConfig>) => {
+    setState(s => {
+      const newConfig = { ...s.config, ...updates };
+      // Apply playback speed immediately
+      if (updates.playbackSpeed && audioRef.current) {
+        audioRef.current.playbackRate = updates.playbackSpeed;
+      }
+      return { ...s, config: newConfig };
+    });
+  }, []);
+
+  return {
+    ...state,
+    playAyah,
+    playRange,
+    pause,
+    resume,
+    stop,
+    togglePlayPause,
+    skipNext,
+    skipPrev,
+    updateConfig,
+    playlistLength: playlistRef.current.length,
+    playlistIndex: playlistIndexRef.current,
+  };
+}
