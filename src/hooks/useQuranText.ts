@@ -35,7 +35,8 @@ export function useQuranText(surahNumber: number, startAyah?: number, endAyah?: 
           return;
         }
 
-        const response = await fetch(`/quran/${surahNumber}.json`);
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+        const response = await fetch(`${basePath}/quran/${surahNumber}.json`);
         if (!response.ok) throw new Error(`Failed to load surah ${surahNumber}`);
         const data: SurahData = await response.json();
         surahCache.set(surahNumber, data);
