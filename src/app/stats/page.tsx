@@ -7,6 +7,7 @@ import { TOTAL_DAYS, TOTAL_JUZ, planDays } from '@/data/plan';
 import { getJuzDayNumbers } from '@/lib/plan-utils';
 import { calculateJuzProgress } from '@/lib/progress-calculator';
 import ProgressBar from '@/components/ui/ProgressBar';
+import ActivityHeatmap from '@/components/stats/ActivityHeatmap';
 
 export default function StatsPage() {
   const { progress, overallProgress, streak, completedCount, currentDay } = useProgress();
@@ -27,8 +28,11 @@ export default function StatsPage() {
   const completedJuz = juzProgressData.filter(j => j.progress === 100).length;
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6 animate-fade-in">
       <h1 className="text-2xl font-bold">الإحصائيات</h1>
+
+      {/* Activity Heatmap */}
+      <ActivityHeatmap progress={progress} />
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

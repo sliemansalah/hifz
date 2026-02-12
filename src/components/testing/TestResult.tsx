@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Certificate from './Certificate';
+import Confetti from '@/components/ui/Confetti';
 import { getAyahErrorSummaries } from '@/lib/error-tracker';
 
 interface TestResultProps {
@@ -71,6 +72,7 @@ export default function TestResult({
 
   return (
     <div className="space-y-4">
+      <Confetti active={score >= 80} />
       {showCert && dayNumber && surahName && startAyah !== undefined && endAyah !== undefined && (
         <Certificate
           dayNumber={dayNumber}
