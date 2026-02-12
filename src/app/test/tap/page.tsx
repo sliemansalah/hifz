@@ -15,6 +15,13 @@ import TestResult from '@/components/testing/TestResult';
 
 type WordStatus = 'hidden' | 'correct' | 'error';
 
+interface WordItem {
+  text: string;
+  status: WordStatus;
+  ayahIndex: number;
+  userInput?: string; // what the user typed (for error words)
+}
+
 function TapTestContent() {
   const searchParams = useSearchParams();
   const dayParam = searchParams.get('day');
@@ -30,17 +37,20 @@ function TapTestContent() {
 
   const { addErrors: logErrors } = useErrorLog();
   const { addSession } = useSessionHistory();
-  const [words, setWords] = useState<{ text: string; status: WordStatus; ayahIndex: number }[]>([]);
+  const [words, setWords] = useState<WordItem[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [finished, setFinished] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [editingWordIndex, setEditingWordIndex] = useState<number | null>(null);
+  const [editInput, setEditInput] = useState('');
   const startTimeRef = useRef<number>(Date.now());
   const containerRef = useRef<HTMLDivElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   // Build word list from ayahs
   useEffect(() => {
     if (!ayahs.length) return;
-    const wordList: { text: string; status: WordStatus; ayahIndex: number }[] = [];
+    const wordList: WordItem[] = [];
     ayahs.forEach((ayah, ayahIdx) => {
       const ayahWords = splitWords(ayah.text);
       ayahWords.forEach(w => {
@@ -51,19 +61,27 @@ function TapTestContent() {
     setCurrentWordIndex(0);
     setFinished(false);
     setShowResult(false);
+    setEditingWordIndex(null);
     startTimeRef.current = Date.now();
   }, [ayahs]);
 
   // Auto-scroll to current word
   useEffect(() => {
-    if (containerRef.current) {
+    if (containerRef.current && editingWordIndex === null) {
       const currentEl = containerRef.current.querySelector(`[data-word-index="${currentWordIndex}"]`);
       currentEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [currentWordIndex]);
+  }, [currentWordIndex, editingWordIndex]);
+
+  // Focus edit input when editing
+  useEffect(() => {
+    if (editingWordIndex !== null && editInputRef.current) {
+      editInputRef.current.focus();
+    }
+  }, [editingWordIndex]);
 
   const revealWord = useCallback((markAsError: boolean) => {
-    if (currentWordIndex >= words.length || finished) return;
+    if (currentWordIndex >= words.length || finished || editingWordIndex !== null) return;
 
     setWords(prev => {
       const updated = [...prev];
@@ -79,25 +97,83 @@ function TapTestContent() {
     } else {
       setCurrentWordIndex(prev => prev + 1);
     }
-  }, [currentWordIndex, words.length, finished]);
+  }, [currentWordIndex, words.length, finished, editingWordIndex]);
+
+  // Toggle a revealed word between correct/error
+  const toggleWordStatus = useCallback((index: number) => {
+    if (words[index].status === 'hidden') return;
+
+    setWords(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        status: updated[index].status === 'correct' ? 'error' : 'correct',
+        userInput: updated[index].status === 'correct' ? updated[index].userInput : undefined,
+      };
+      return updated;
+    });
+  }, [words]);
+
+  // Start editing an error word
+  const startEditWord = useCallback((index: number) => {
+    if (words[index].status !== 'error') return;
+    setEditingWordIndex(index);
+    setEditInput(words[index].userInput || '');
+  }, [words]);
+
+  // Save edit
+  const saveEdit = useCallback(() => {
+    if (editingWordIndex === null) return;
+    setWords(prev => {
+      const updated = [...prev];
+      updated[editingWordIndex] = {
+        ...updated[editingWordIndex],
+        userInput: editInput.trim() || undefined,
+      };
+      return updated;
+    });
+    setEditingWordIndex(null);
+    setEditInput('');
+  }, [editingWordIndex, editInput]);
+
+  // Go back one word
+  const goBack = useCallback(() => {
+    if (currentWordIndex <= 0 || finished || editingWordIndex !== null) return;
+    const prevIndex = currentWordIndex - 1;
+    setWords(prev => {
+      const updated = [...prev];
+      updated[prevIndex] = { ...updated[prevIndex], status: 'hidden', userInput: undefined };
+      return updated;
+    });
+    setCurrentWordIndex(prevIndex);
+  }, [currentWordIndex, finished, editingWordIndex]);
 
   // Keyboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showResult || !words.length) return;
+      if (showResult || !words.length || editingWordIndex !== null) return;
 
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
+        if (finished) return;
         revealWord(false); // correct
       } else if (e.code === 'KeyX' || e.code === 'Backspace') {
         e.preventDefault();
-        revealWord(true); // error
+        if (finished) return;
+        if (e.code === 'Backspace' && currentWordIndex > 0 && !finished) {
+          goBack();
+        } else {
+          revealWord(true); // error
+        }
+      } else if (e.code === 'KeyZ' && e.ctrlKey) {
+        e.preventDefault();
+        goBack();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [revealWord, showResult, words.length]);
+  }, [revealWord, showResult, words.length, editingWordIndex, goBack, finished, currentWordIndex]);
 
   const handleFinish = () => {
     if (!day || !fullText) return;
@@ -123,8 +199,8 @@ function TapTestContent() {
           ayahNumber: day.startAyah + w.ayahIndex,
           wordIndex: globalIndex,
           expected: removeTashkeel(w.text),
-          actual: '',
-          type: 'deletion' as const,
+          actual: w.userInput || '',
+          type: (w.userInput ? 'substitution' : 'deletion') as 'substitution' | 'deletion',
         };
       });
       logErrors(errorEntries);
@@ -144,8 +220,8 @@ function TapTestContent() {
         surahNumber: day.surahNumber,
         wordIndex: words.indexOf(w),
         expected: removeTashkeel(w.text),
-        actual: '',
-        type: 'deletion' as const,
+        actual: w.userInput || '',
+        type: (w.userInput ? 'substitution' : 'deletion') as 'substitution' | 'deletion',
       })),
     });
 
@@ -170,11 +246,11 @@ function TapTestContent() {
   };
 
   const handleRetry = () => {
-    // Reset all words to hidden
-    setWords(prev => prev.map(w => ({ ...w, status: 'hidden' })));
+    setWords(prev => prev.map(w => ({ ...w, status: 'hidden', userInput: undefined })));
     setCurrentWordIndex(0);
     setFinished(false);
     setShowResult(false);
+    setEditingWordIndex(null);
     startTimeRef.current = Date.now();
   };
 
@@ -216,8 +292,8 @@ function TapTestContent() {
           errors={errorWords.map(w => ({
             wordIndex: words.indexOf(w),
             expected: w.text,
-            actual: '',
-            type: 'deletion',
+            actual: w.userInput || '',
+            type: w.userInput ? 'substitution' : 'deletion',
           }))}
           onRetry={handleRetry}
           dayNumber={dayNumber}
@@ -254,14 +330,46 @@ function TapTestContent() {
       </div>
 
       {/* Instructions */}
-      <div className="flex gap-2 text-xs justify-center" style={{ color: 'var(--text-secondary)' }}>
+      <div className="flex gap-1.5 text-[10px] justify-center flex-wrap" style={{ color: 'var(--text-secondary)' }}>
         <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-          مسافة/ضغط = صحيح
+          مسافة = صحيح
         </span>
         <span className="px-2 py-1 rounded" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-          X/حذف = خطأ
+          X = خطأ
+        </span>
+        <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+          Ctrl+Z = رجوع
+        </span>
+        <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+          اضغط كلمة = تبديل صح/خطأ
         </span>
       </div>
+
+      {/* Edit modal */}
+      {editingWordIndex !== null && (
+        <div className="card p-3 space-y-2" style={{ borderColor: '#f97316', borderWidth: '2px' }}>
+          <p className="text-sm font-bold">ماذا قلت بدلاً من هذه الكلمة؟</p>
+          <p className="quran-text text-lg text-center" style={{ color: '#ef4444' }}>
+            {words[editingWordIndex].text}
+          </p>
+          <input
+            ref={editInputRef}
+            type="text"
+            value={editInput}
+            onChange={e => setEditInput(e.target.value)}
+            className="w-full p-2 rounded-lg border quran-text text-lg text-center"
+            style={{ backgroundColor: 'var(--bg-secondary)', direction: 'rtl' }}
+            placeholder="اكتب ما قلته..."
+            dir="rtl"
+            onKeyDown={e => { if (e.key === 'Enter') saveEdit(); }}
+          />
+          <div className="flex gap-2">
+            <button onClick={saveEdit} className="btn-primary flex-1 py-2 text-sm">حفظ</button>
+            <button onClick={() => { setEditingWordIndex(null); setEditInput(''); }}
+              className="btn-secondary flex-1 py-2 text-sm">إلغاء</button>
+          </div>
+        </div>
+      )}
 
       {/* Words display */}
       <div ref={containerRef} className="card min-h-[200px] quran-text text-xl leading-[2.5] text-center">
@@ -280,18 +388,30 @@ function TapTestContent() {
                 onClick={() => {
                   if (isCurrentWord) revealWord(false);
                 }}>
-                {isCurrentWord ? '؟' : '\u00A0'}
+                {isCurrentWord ? '\u061F' : '\u00A0'}
               </span>
             );
           }
 
           return (
             <span key={i} data-word-index={i}
-              className={`inline-block mx-0.5 px-1 rounded transition-all ${
-                word.status === 'error' ? 'bg-red-100 text-red-600 line-through' : ''
+              className={`inline-block mx-0.5 px-1 rounded transition-all cursor-pointer ${
+                word.status === 'error'
+                  ? 'bg-red-100 text-red-600 border border-red-300'
+                  : 'hover:bg-emerald-50'
               }`}
-              style={word.status === 'correct' ? { color: 'var(--text-primary)' } : undefined}>
+              style={word.status === 'correct' ? { color: 'var(--text-primary)' } : undefined}
+              onClick={() => toggleWordStatus(i)}
+              onDoubleClick={() => {
+                if (word.status === 'error') startEditWord(i);
+              }}
+              title={word.status === 'error' ? 'اضغط مرتين لكتابة ما قلته • اضغط للتبديل' : 'اضغط للتبديل بين صحيح وخطأ'}>
               {word.text}
+              {word.status === 'error' && word.userInput && (
+                <span className="text-xs block" style={{ color: '#f97316', fontSize: '0.6em' }}>
+                  ({word.userInput})
+                </span>
+              )}
             </span>
           );
         })}
@@ -299,18 +419,30 @@ function TapTestContent() {
 
       {/* Action buttons */}
       {!finished ? (
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => revealWord(false)}
-            className="py-4 rounded-xl text-lg font-bold transition-all active:scale-95"
-            style={{ backgroundColor: 'var(--color-emerald-600)', color: 'white' }}>
-            صحيح
-          </button>
-          <button
-            onClick={() => revealWord(true)}
-            className="py-4 rounded-xl text-lg font-bold transition-all active:scale-95 bg-red-500 text-white">
-            خطأ
-          </button>
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => revealWord(false)}
+              disabled={editingWordIndex !== null}
+              className="py-4 rounded-xl text-lg font-bold transition-all active:scale-95 disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-emerald-600)', color: 'white' }}>
+              صحيح
+            </button>
+            <button
+              onClick={() => revealWord(true)}
+              disabled={editingWordIndex !== null}
+              className="py-4 rounded-xl text-lg font-bold transition-all active:scale-95 bg-red-500 text-white disabled:opacity-50">
+              خطأ
+            </button>
+          </div>
+          {currentWordIndex > 0 && (
+            <button onClick={goBack}
+              disabled={editingWordIndex !== null}
+              className="w-full py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+              رجوع كلمة
+            </button>
+          )}
         </div>
       ) : (
         <button onClick={handleFinish}
